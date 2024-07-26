@@ -1,7 +1,8 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "nodemon dist/index.js",
@@ -12,9 +13,6 @@
   "jest": {
     "testEnvironment": "node"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -42,5 +40,5 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3"
   },
-  "description": ""
+  "license": "ISC"
 }
