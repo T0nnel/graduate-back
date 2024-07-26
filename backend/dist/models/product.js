@@ -24,15 +24,18 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-// Create a Schema for the User model
-const UserSchema = new mongoose_1.Schema({
-    email: { type: String, required: true, unique: true }, // Unique constraint on email
+// Create a Schema for the Product model
+const ProductSchema = new mongoose_1.Schema({
     name: { type: String, required: true },
-    password: { type: String, required: true }, // Consider using hashing for security
-    // Add other fields as necessary
+    description: { type: String, required: true },
+    price: { type: Number, required: true },
+    location: { type: String, required: true },
+    shippingType: { type: String, enum: ['free', 'priced'], required: true },
+    shippingPrice: { type: Number, default: null },
+    image: { type: String, required: true }
 }, {
     timestamps: true // Optional: Adds createdAt and updatedAt fields
 });
-// Create and export the User model
-const User = mongoose_1.default.model('User', UserSchema);
-exports.default = User;
+// Create and export the Product model
+const Product = mongoose_1.default.model('Product', ProductSchema);
+exports.default = Product;

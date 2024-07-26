@@ -22,17 +22,38 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
-// Create a Schema for the User model
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+// Define the User Schema
 const UserSchema = new mongoose_1.Schema({
-    email: { type: String, required: true, unique: true }, // Unique constraint on email
-    name: { type: String, required: true },
-    password: { type: String, required: true }, // Consider using hashing for security
-    // Add other fields as necessary
-}, {
-    timestamps: true // Optional: Adds createdAt and updatedAt fields
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    bio: { type: String, default: '' },
+    profilePicture: { type: String, default: '' } // Store filename of the profile picture
 });
+// Hash password before saving user
+UserSchema.pre('save', async function (next) {
+    if (!this.isModified('password'))
+        return next();
+    try {
+        const salt = await bcryptjs_1.default.genSalt(10);
+        this.password = await bcryptjs_1.default.hash(this.password, salt);
+        next();
+    }
+    catch (err) {
+        next(); // Pass error to the next middleware
+    }
+});
+// Compare password method
+UserSchema.methods.comparePassword = function (candidatePassword) {
+    return bcryptjs_1.default.compare(candidatePassword, this.password);
+};
 // Create and export the User model
 const User = mongoose_1.default.model('User', UserSchema);
 exports.default = User;

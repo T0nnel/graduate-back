@@ -8,23 +8,24 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const mongoose_1 = __importDefault(require("mongoose"));
-const connectDB = () => __awaiter(void 0, void 0, void 0, function* () {
+exports.connectToDatabase = void 0;
+const mongodb_1 = require("mongodb");
+// Load environment variables from .env file
+const uri = process.env.MONGO_URI || 'mongodb+srv://tonnel:tonnel@cluster0.eyeqbwd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'; // Replace with your MongoDB URI
+let client = null;
+const connectToDatabase = () => __awaiter(void 0, void 0, void 0, function* () {
+    if (client)
+        return client.db(); // Return the existing connection if available
     try {
-        yield mongoose_1.default.connect(process.env.MONGO_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
-        console.log('MongoDB connected');
+        client = new mongodb_1.MongoClient(uri, {});
+        yield client.connect();
+        console.log('Connected to MongoDB');
+        return client.db();
     }
     catch (error) {
-        console.error(`Error: ${error.message}`);
-        process.exit(1);
+        console.error('Error connecting to MongoDB:', error);
+        throw error;
     }
 });
-exports.default = connectDB;
-//# sourceMappingURL=db.js.map
+exports.connectToDatabase = connectToDatabase;
