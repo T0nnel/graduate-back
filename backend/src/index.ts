@@ -1,28 +1,31 @@
 import express, { Request, Response, NextFunction } from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import multer from 'multer';
+import multer, { diskStorage, StorageEngine, FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import userRoutes from './routes/userRoutes';
-import Product from './models/product';
-import User from './models/User';
+import userRoutes from './routes/userRoutes'; // Adjust the path if necessary
+import Product from './models/product'; // Adjust the path if necessary
+import User from './models/User'; // Adjust the path if necessary
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mydatabase'; // Replace with your MongoDB URI
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://tonnel:tonnel@cluster0.eyeqbwd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
 // Middleware
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static('uploads'));
+
+
 
 // Create uploads folder if it doesn't exist
 if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
@@ -45,15 +48,18 @@ connectToDatabase().catch(error => {
   process.exit(1); // Exit the process if connection fails
 });
 
+type MulterCallback = (error: Error | null, filename: string) => void;
+
+// Multer configuration
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Define upload directory
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // Specify the folder to store uploaded files
   },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}${ext}`); // Append timestamp to file name
-  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname)); // Append timestamp to filename
+  }
 });
+
 
 const upload = multer({ storage });
 
@@ -106,6 +112,19 @@ app.get('/api/products/search', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/products/:id', async (req: Request, res: Response) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    res.json(product);
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 app.get('/api/user', async (req: Request, res: Response) => {
   const email = req.query.email as string;
 
@@ -134,67 +153,11 @@ const verifyToken = (req: Request, res: Response, next: NextFunction) => {
 
   jwt.verify(token, process.env.JWT_SECRET as string, (err, decoded) => {
     if (err) return res.status(403).json({ message: 'Failed to authenticate token' });
-    (req as any).userId = (decoded as any).userId;
+    (req as any).userId = (decoded as JwtPayload).userId;
     next();
   });
 };
 
-// Update profile route
-app.post('/api/updateProfile', verifyToken, upload.single('profilePicture'), async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).userId;
-    const { firstName, lastName, email, bio, password } = req.body;
-
-    // Find user
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // Update user fields
-    user.firstName = firstName || user.firstName;
-    user.lastName = lastName || user.lastName;
-    user.email = email || user.email;
-    user.bio = bio || user.bio;
-
-    // Handle password update
-    if (password) {
-      user.password = await bcrypt.hash(password, 10); // Hash the new password
-    }
-
-    // Handle file upload
-    if (req.file) {
-      if (user.profilePicture) {
-        fs.unlinkSync(path.join(__dirname, 'uploads', user.profilePicture));
-      }
-      user.profilePicture = req.file.filename;
-    }
-
-    await user.save();
-
-    res.json(user);
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-app.get('/api/products', async (req, res) => {
-  try {
-    const products = await Product.find();
-    res.json(products);
-  } catch (error) {
-    res.status(500).json({ message:"Error" });
-  }
-});
-
-// Get a product by ID
-app.get('/api/products/:id', async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.json(product);
-  } catch (error) {
-    res.status(500).json({ message: "Error" });
-  }
-});
 app.use('/api/users', userRoutes);
 
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));

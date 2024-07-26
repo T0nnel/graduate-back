@@ -7,11 +7,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": "./",
-    "paths": {
-      "*": ["node_modules/*"],
-      "*": ["types/*"]
-    }
+  "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["node", "express"]
   },
-  "include": ["src/**/*", "types/**/*"],
+ "include": ["src/**/*.ts", "src/types/**/*.d.ts"],
   "exclude": ["node_modules"]
 }
