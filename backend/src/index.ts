@@ -93,6 +93,11 @@ app.post('/api/products', upload.single('image'), async (req: Request, res: Resp
   }
 });
 
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
 app.get('/api/products', async (req: Request, res: Response) => {
   try {
     const products = await Product.find();
