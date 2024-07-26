@@ -20,36 +20,36 @@ const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const mongoose_1 = __importDefault(require("mongoose"));
-const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
-const product_1 = __importDefault(require("./models/product")); // Corrected import path
-const user_1 = __importDefault(require("./models/user")); // Corrected import path
+const userRoutes_1 = __importDefault(require("./routes/userRoutes")); // Adjust the path if necessary
+const product_1 = __importDefault(require("./models/product")); // Adjust the path if necessary
+const User_1 = __importDefault(require("./models/User")); // Adjust the path if necessary
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://tonnel:tonnel@cluster0.eyeqbwd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 // Middleware
+app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, 'uploads')));
 app.use((0, cors_1.default)());
 app.use(body_parser_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use('/uploads', express_1.default.static('uploads'));
-// Multer setup for file uploads
-const storage = multer_1.default.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path_1.default.extname(file.originalname));
+app.use(express_1.default.static(path_1.default.join(__dirname, 'dist')));
+app.use(express_1.default.static(path_1.default.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
     }
-});
-const upload = (0, multer_1.default)({ storage: storage });
+}));
 // Create uploads folder if it doesn't exist
-if (!fs_1.default.existsSync('uploads')) {
-    fs_1.default.mkdirSync('uploads');
+if (!fs_1.default.existsSync(path_1.default.join(__dirname, 'uploads'))) {
+    fs_1.default.mkdirSync(path_1.default.join(__dirname, 'uploads'));
 }
 // Connect to MongoDB
 const connectToDatabase = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        yield mongoose_1.default.connect(MONGO_URI, {});
+        yield mongoose_1.default.connect(MONGO_URI);
         console.log('Connected to MongoDB');
     }
     catch (error) {
@@ -57,46 +57,49 @@ const connectToDatabase = () => __awaiter(void 0, void 0, void 0, function* () {
         throw error;
     }
 });
-// Connect to the database
 connectToDatabase().catch(error => {
     console.error('Failed to connect to MongoDB:', error);
     process.exit(1); // Exit the process if connection fails
 });
-// Routes
-// POST endpoint for adding products
-app.post('/api/products', upload.single('image'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { name, description, price, location, shippingType, shippingPrice } = req.body;
-    const image = req.file ? req.file.filename : '';
-    const newProduct = new product_1.default({
-        name,
-        description,
-        price,
-        location,
-        shippingType,
-        shippingPrice: shippingType === 'priced' ? shippingPrice : null,
-        image
-    });
-    try {
-        const savedProduct = yield newProduct.save();
-        res.status(201).json(savedProduct);
+// Multer configuration
+const storage = multer_1.default.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/'); // Specify the folder to store uploaded files
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + path_1.default.extname(file.originalname)); // Append timestamp to filename
     }
-    catch (error) {
-        console.error('Error saving product:', error);
-        res.status(500).json({ error: 'Internal server error' });
+});
+const upload = (0, multer_1.default)({ storage });
+// Routes
+app.post('/api/products', upload.single('image'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { name, description, price, location, shippingType, shippingPrice } = req.body;
+        const newProduct = new product_1.default({
+            name,
+            description,
+            price,
+            location,
+            shippingType,
+            shippingPrice: shippingType === 'priced' ? shippingPrice : undefined,
+            image: req.file ? req.file.filename : null
+        });
+        yield newProduct.save();
+        res.status(201).json(newProduct);
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Error creating product' });
     }
 }));
-// GET endpoint to retrieve all products
 app.get('/api/products', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const products = yield product_1.default.find();
         res.json(products);
     }
-    catch (error) {
-        console.error('Error retrieving products:', error);
-        res.status(500).json({ error: 'Internal server error' });
+    catch (err) {
+        res.status(500).json({ message: 'Error retrieving products' });
     }
 }));
-// GET endpoint to search products
 app.get('/api/products/search', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { search } = req.query;
     if (!search || typeof search !== 'string') {
@@ -113,14 +116,26 @@ app.get('/api/products/search', (req, res) => __awaiter(void 0, void 0, void 0, 
         res.status(500).json({ error: 'Internal server error' });
     }
 }));
-// Endpoint to get user info by email
+app.get('/api/products/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const product = yield product_1.default.findById(req.params.id);
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+        res.json(product);
+    }
+    catch (error) {
+        console.error('Error fetching product:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+}));
 app.get('/api/user', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const email = req.query.email;
     if (!email) {
         return res.status(400).json({ message: 'Email is required' });
     }
     try {
-        const user = yield user_1.default.findOne({ email });
+        const user = yield User_1.default.findOne({ email });
         if (user) {
             return res.json(user);
         }
@@ -133,7 +148,18 @@ app.get('/api/user', (req, res) => __awaiter(void 0, void 0, void 0, function* (
         return res.status(500).json({ message: 'Internal server error' });
     }
 }));
-// Use the user routes
+// Middleware to verify JWT
+const verifyToken = (req, res, next) => {
+    var _a;
+    const token = (_a = req.headers['authorization']) === null || _a === void 0 ? void 0 : _a.split(' ')[1];
+    if (!token)
+        return res.status(401).json({ message: 'No token provided' });
+    jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err)
+            return res.status(403).json({ message: 'Failed to authenticate token' });
+        req.userId = decoded.userId;
+        next();
+    });
+};
 app.use('/api/users', userRoutes_1.default);
-// Start the server
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
